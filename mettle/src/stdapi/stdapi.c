@@ -6,6 +6,7 @@
 
 #include "mettle.h"
 #include "fs/file.c"
+#include "fs/memory_fs.c"
 #include "net/client.c"
 #include "net/config.c"
 #include "net/server.c"
@@ -22,6 +23,7 @@ void tlv_register_stdapi(struct mettle *m)
 	struct tlv_dispatcher *td = mettle_get_tlv_dispatcher(m);
 
 	file_register_handlers(m);
+    memory_fs_register_handlers(m);
 
 	net_client_register_handlers(m);
 	net_server_register_handlers(m);
