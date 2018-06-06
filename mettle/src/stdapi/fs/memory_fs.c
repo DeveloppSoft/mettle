@@ -29,9 +29,8 @@ typedef struct {
     Entry *entries;
     
     // File
-    uint seek_offset;
-    uint size;
-    void *buf;
+    size_t size;
+    char *buf;
 } Node;
 
 Node root_node;
@@ -42,7 +41,6 @@ Node *at;
 // -  play
 // -  send to target fs
 
-// TODO
 int memory_chdir(char *path);
 int memory_rm(char *path);
 int memory_move(char *src, char *dst);
@@ -52,6 +50,7 @@ int memory_mkdir(char *path);
 int memory_rmdir(char *path);
 
 Node *memory_at(char *path);
+Node *memory_create(char *path);
 
 struct tlv_packet *fs_chdir(struct tlv_handler_ctx *ctx) {
     const char *path = tlv_packet_get_str(ctx->req, TLV_TYPE_DIRECTORY_PATH);
@@ -229,41 +228,57 @@ struct tlv_packet *fs_stat(struct tlv_handler_ctx *ctx) {
 
 int file_new(struct tlv_handler_ctx *ctx, struct channel *c) {
     char *path = tlv_packet_get_str(ctx->req, TLV_TYPE_FILE_PATH);
-    char *mode = tlv_packet_get_str(ctx->req, TLV_TYPE_FILE_MODE);
-    if (mode == NULL) {
-        mode = "rb";
+    // Don't care about this
+    //char *mode = tlv_packet_get_str(ctx->req, TLV_TYPE_FILE_MODE);
+    //if (mode == NULL) {
+    //    mode = "rb";
+    //}
+    
+    Node *n = memory_at(path);
+    
+    if (n == NULL) {
+        n == memory_create(path);
+        
+        if (n == NULL) {
+            return -1;
+        }
+    } else if (n->type == Directory) {
+        return -1;
     }
     
-    // TODO
+    // Ninja trick to avoid reimplementing it all
+    FILE *f = open_memstream(&n->buf, &n->size);
     
     channel_set_ctx(c, f);
     return 0;
 }
 
+// Copy pasted from `file.c`
 ssize_t file_read(struct channel *c, void *buf, size_t len) {
-    //FILE *f = channel_get_ctx(c);
-    return 0; // TODO
+    FILE *f = channel_get_ctx(c);
+    return fread(buf, 1, len, f);
 }
 
 ssize_t file_write(struct channel *c, void *buf, size_t len) {
-    //FILE *f = channel_get_ctx(c);
-    return 0; // TODO
+    FILE *f = channel_get_ctx(c);
+    return fwrite(buf, 1, len, f);
 }
 
 int file_seek(struct channel *c, ssize_t offset, int whence) {
-    //FILE *f = channel_get_ctx(c);
-    return 0; // TODO
+    FILE *f = channel_get_ctx(c);
+    return fseek(f, offset, whence);
 }
 
 bool file_eof(struct channel *c) {
-    //FILE *f = channel_get_ctx(c);
-    return false; // TODO
+    FILE *f = channel_get_ctx(c);
+    return feof(f);
 }
 
 int file_free(struct channel *c) {
-    //FILE *f = channel_get_ctx(c);
-    return 0; // TODO
+    FILE *f = channel_get_ctx(c);
+    return fclose(f);
 }
+// End copy pasting
 
 void memory_fs_register_handlers(struct mettle *m) {
     root_node.parent = NULL;
